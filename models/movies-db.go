@@ -41,7 +41,7 @@ func (m *DBModel) Get(id int) (*Movie, error) {
 		return nil, err
 	}
 
-	query = `select movies_genres.id, genres.genre_name from genres 
+	query = `select genres.id, genres.genre_name from genres 
 	left join movies_genres on genres.id = movies_genres.genre_id 
 	where movies_genres.movie_id = ?`
 
@@ -127,4 +127,68 @@ func (m *DBModel) All() ([]*Movie, error) {
 	}
 
 	return movies, nil
+}
+
+func (m *DBModel) GenresAll() ([]*Genre, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	query := `select id, genre_name, created_at, updated_at from genres order by genre_name`
+
+	rows, err := m.DB.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var genres []*Genre
+
+	for rows.Next() {
+		var genre Genre
+		err := rows.Scan(
+			&genre.ID,
+			&genre.GenreName,
+			&genre.CreatedAt,
+			&genre.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		genres = append(genres, &genre)
+	}
+
+	return genres, nil
+}
+
+func (m *DBModel) GenreMovies(id int) ([]*Movie, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	query := `select movies.id, movies.title from movies 
+				left join movies_genres on movies_genres.movie_id =  movies.id
+				where movies_genres.genre_id = ?
+				order by title`
+
+	rows, err := m.DB.QueryContext(ctx, query, id)
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	var movies []*Movie
+	for rows.Next() {
+		var movie Movie
+		err := rows.Scan(
+			&movie.ID,
+			&movie.Title,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		movies = append(movies, &movie)
+	}
+	return movies, nil
+
 }
